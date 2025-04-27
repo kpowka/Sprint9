@@ -43,11 +43,13 @@ func main() {
 	// для проверки будем считать количество и сумму отправленных чисел
 	var inputSum int64   // сумма сгенерированных чисел
 	var inputCount int64 // количество сгенерированных чисел
-
+	var mu sync.Mutex
 	// генерируем числа, считая параллельно их количество и сумму
 	go Generator(ctx, chIn, func(i int64) {
+		mu.Lock()
 		inputSum += i
 		inputCount++
+		mu.Unlock()
 	})
 
 	const NumOut = 5 // количество обрабатывающих горутин и каналов
@@ -91,22 +93,26 @@ func main() {
 		count++
 		sum += v
 	}
+	mu.Lock()
+	is := inputSum
+	ic := inputCount
+	mu.Unlock()
 
 	fmt.Println("Количество чисел", inputCount, count)
 	fmt.Println("Сумма чисел", inputSum, sum)
 	fmt.Println("Разбивка по каналам", amounts)
 
 	// проверка результатов
-	if inputSum != sum {
-		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\n", inputSum, sum)
+	if is != sum {
+		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\n", is, sum)
 	}
-	if inputCount != count {
-		log.Fatalf("Ошибка: количество чисел не равно: %d != %d\n", inputCount, count)
+	if ic != count {
+		log.Fatalf("Ошибка: количество чисел не равно: %d != %d\n", ic, count)
 	}
 	for _, v := range amounts {
-		inputCount -= v
+		ic -= v
 	}
-	if inputCount != 0 {
+	if ic != 0 {
 		log.Fatalf("Ошибка: разделение чисел по каналам неверное\n")
 	}
 }
